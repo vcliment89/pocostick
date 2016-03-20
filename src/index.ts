@@ -1,53 +1,13 @@
-import * as mysql from "mysql";
 import * as pluralize from "pluralize";
 import * as fs from "fs";
-var pascalcase = require("pascalcase");
-
-type YesOrNo = "YES" | "NO";
-
-interface IFieldPacket {
-    catalog: string;
-    charsetNr: number;
-    db: string;
-    decimals: number;
-    default: any;
-    flags: number;
-    length: number;
-    name: string;
-    orgName: string;
-    protocol41: boolean;
-    table: string;
-    type: number;
-    zeroFill: boolean;
-}
-
-interface IRowDataPacket {
-    TABLE_CATALOG: string;
-    TABLE_SCHEMA: string;
-    TABLE_NAME: string;
-    COLUMN_NAME: string;
-    ORDINAL_POSITION: number;
-    COLUMN_DEFAULT: any;
-    IS_NULLABLE: YesOrNo;
-    DATA_TYPE: string;
-    CHARACTER_MAXIMUM_LENGTH: number;
-    CHARACTER_OCTET_LENGTH: number;
-    NUMERIC_PRECISION?: number;
-    NUMERIC_SCALE?: number;
-    DATETIME_PRECISION?: number;
-    CHARACTER_SET_NAME: string;
-    COLLATION_NAME: string;
-    COLUMN_TYPE: string;
-    COLUMN_KEY: string;
-    EXTRA: string;
-    PRIVILEGES: string;
-    COLUMN_COMMENT: string;
-    GENERATION_EXPRESSION: string;
-}
-
-class PocoFile {
-    constructor(public filename: string, public content: string) {}
-}
+import {IConfig} from "./IConfig";
+import MysqlHandler from "./MysqlHandler";
+import MssqlHandler from "./MssqlHandler";
+import {IDatabaseHandler} from "./IDatabaseHandler";
+import {IRow} from "./IRow";
+import {IField} from "./IField";
+import PocoFile from "./PocoFile";
+let pascalcase = require("pascalcase");
 
 export default class PocoStick {
     private now = new Date();
@@ -91,6 +51,37 @@ export default class PocoStick {
         // Strings
         "char": this.tsTypes.string,
         "varchar": this.tsTypes.string,
+        "nvarchar": this.tsTypes.string,
+        "text": this.tsTypes.string,
+        "tinytext": this.tsTypes.string,
+        "mediumtext": this.tsTypes.string,
+        "longtext": this.tsTypes.string,
+
+        // Booleans
+        "bit": this.tsTypes.boolean
+    };
+    private mssqlTypes = {
+        // Numbers
+        "int": this.tsTypes.number,
+        "tinyint": this.tsTypes.number,
+        "smallint": this.tsTypes.number,
+        "mediumint": this.tsTypes.number,
+        "bigint": this.tsTypes.number,
+        "float": this.tsTypes.number,
+        "double": this.tsTypes.number,
+        "decimal": this.tsTypes.number,
+
+        // Dates
+        "date": this.tsTypes.date,
+        "datetime": this.tsTypes.date,
+        "timestamp": this.tsTypes.date,
+        "time": this.tsTypes.date,
+        "year": this.tsTypes.date,
+
+        // Strings
+        "char": this.tsTypes.string,
+        "varchar": this.tsTypes.string,
+        "nvarchar": this.tsTypes.string,
         "text": this.tsTypes.string,
         "tinytext": this.tsTypes.string,
         "mediumtext": this.tsTypes.string,
@@ -100,37 +91,76 @@ export default class PocoStick {
         "bit": this.tsTypes.boolean
     };
 
-    constructor(public config: mysql.IConnectionConfig, public outputDir = "/", public defaultNamespace = "PocoStick.Models", public logger: (message: string) => void = message => console.log(message)) {
+    private typeMap = {};
+    
+    private db: IDatabaseHandler;
 
+    constructor(public config: IConfig, public outputDir = "/", public defaultNamespace = "PocoStick.Models", public logger: (message: string) => void = message => console.log(message)) {
+        switch (config.driver) {
+            case "mysql":
+                this.useMysql();
+                break;
+            case "mssql":
+                this.useMssql();
+                break;
+            default:
+                throw new Error("Unsupported driver");
+        }
     }
 
-    public generate(dryRun: boolean = false) {
-        var connection = mysql.createConnection(this.config);
+    public generate(completed: () => void, dryRun: boolean = false) {
+        this.db.connect();
 
-        connection.connect();
+        try {
+            this.db.query((err, rows: Array<IRow>) => {
+                if (err !== null) {
+                    throw new Error(err.message);
+                }
 
-        var sql = `SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '${this.config.database}'`;
+                var tableNames = rows
+                    .map(row => row.TABLE_NAME)
+                    .filter((val, pos, arr) => arr.indexOf(val) === pos);
 
-        connection.query(sql, (err, rows: Array<IRowDataPacket>, fields: Array<IFieldPacket>) => {
-            if (err) throw err;
+                var files: Array<PocoFile> = tableNames.map(tableName => this.createFile(rows, tableName));
 
-            var tableNames = rows.map(row => row.TABLE_NAME).filter((val, pos, arr) => arr.indexOf(val) === pos);
+                if (!dryRun) {
+                    files.forEach(file => {
+                        try {
+                            fs.writeFileSync(file.filename, file.content, "utf8");
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    });
+                }
 
-            var files: Array<PocoFile> = tableNames.map(tableName => this.createFile(rows, tableName));
+                this.db.end();
 
-            if (!dryRun) {
-                files.forEach(file => fs.writeFileSync(file.filename, file.content, "utf8"));
-            }
-        });
+                this.logger("Finished");
 
-        connection.end();
+                completed();
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    private useMssql() {
+        this.typeMap = this.mssqlTypes;
+
+        this.db = new MssqlHandler(this.config);
+    }
+
+    private useMysql() {
+        this.typeMap = this.mysqlTypes;
+
+        this.db = new MysqlHandler(this.config);
     }
 
     private static getProperName(tableName: string) {
         return pluralize.singular(pascalcase(tableName));
     }
 
-    private createFile(rows: Array<IRowDataPacket>, tableName: string) {
+    private createFile(rows: Array<IRow>, tableName: string) {
         var fileName = `${PocoStick.getProperName(tableName)}.ts`;
 
         this.logger(`Creating file '${fileName}'`);
@@ -138,7 +168,7 @@ export default class PocoStick {
         return new PocoFile(`${this.outputDir}${fileName}`, this.createClass(rows, tableName));
     }
 
-    private createClass(rows: Array<IRowDataPacket>, tableName: string) {
+    private createClass(rows: Array<IRow>, tableName: string) {
         var className = PocoStick.getProperName(tableName);
 
         this.logger(`\tCreating class '${className}'`);
@@ -146,11 +176,11 @@ export default class PocoStick {
         return this.templateClass
             .replace("POCOSTICK_DEFAULT_NAMESPACE", this.defaultNamespace)
             .replace("POCOSTICK_CLASS_NAME", className)
-            .replace("{{now}}", this.now)
+            .replace("{{now}}", this.now.toString())
             .replace("// POCOSTICK_PROPERTIES", this.createProperties(rows, tableName));
     }
 
-    private createProperties(rows: Array<IRowDataPacket>, tableName: string) {
+    private createProperties(rows: Array<IRow>, tableName: string) {
         var className = PocoStick.getProperName(tableName);
 
         this.logger(`\t\tCreating properties for class '${className}'`);
@@ -161,9 +191,9 @@ export default class PocoStick {
             .join("\r\n");
     }
 
-    private createProperty(row: IRowDataPacket, className: string) {
+    private createProperty(row: IRow, className: string) {
         var name = PocoStick.getProperName(row.COLUMN_NAME);
-        var type = this.mysqlTypes[row.DATA_TYPE];
+        var type = this.typeMap[row.DATA_TYPE];
         var isNullable = row.IS_NULLABLE === "YES";
 
         this.logger(`\t\tCreating property '${name}' of type '${type}' that ${isNullable ? "IS" : "is not"} nullable.`);

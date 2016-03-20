@@ -1,6 +1,10 @@
 import PocoStick from "./index";
 import * as fs from "fs";
 
-var stick = new PocoStick(require("../connection.json"), "./models/");
-
-stick.generate();
+new PocoStick({
+    "host": "localhost",
+    "user": "pocostick",
+    "password": "pocostick",
+    "database": "pocostick",
+    "driver": "mysql"
+}, "./models/").generate(() => process.exit(0));
