@@ -1,4 +1,4 @@
-export interface IField {
+export interface IFieldPacket {
     catalog: string;
     charsetNr: number;
     db: string;

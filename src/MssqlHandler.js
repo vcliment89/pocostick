@@ -13,7 +13,15 @@ var MssqlHandler = (function () {
         var sql = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_CATALOG = '" + this.config.database + "'";
         mssql.connect(connectionString)
             .then(function () { return new mssql.Request().query(sql)
-            .then(function (recordSet) { return callback(null, recordSet); })
+            .then(function (recordSet) { return callback(null, recordSet.map(function (row) {
+            return {
+                tableName: row.TABLE_NAME,
+                name: row.COLUMN_NAME,
+                defaultValue: row.COLUMN_DEFAULT,
+                isNullable: row.IS_NULLABLE === "YES",
+                type: row.DATA_TYPE
+            };
+        })); })
             .catch(function (err) { return callback(err, null); }); })
             .catch(function (err) { return callback(err, null); });
     };

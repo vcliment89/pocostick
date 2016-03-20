@@ -6,7 +6,6 @@ import MysqlHandler from "./MysqlHandler";
 import MssqlHandler from "./MssqlHandler";
 import {IDatabaseHandler} from "./IDatabaseHandler";
 import {IRow} from "./IRow";
-import {IField} from "./IField";
 import PocoFile from "./PocoFile";
 let pascalcase = require("pascalcase");
 
@@ -119,7 +118,7 @@ export default class PocoStick {
                 }
 
                 var tableNames = rows
-                    .map(row => row.TABLE_NAME)
+                    .map(row => row.tableName)
                     .filter((val, pos, arr) => arr.indexOf(val) === pos);
 
                 var files: Array<PocoFile> = tableNames.map(tableName => this.createFile(rows, tableName));
@@ -187,20 +186,20 @@ export default class PocoStick {
         this.logger(`\t\tCreating properties for class '${className}'`);
 
         return rows
-            .filter(row => row.TABLE_NAME === tableName)
+            .filter(row => row.tableName === tableName)
             .map(field => this.createProperty(field, className))
             .join("\r\n");
     }
 
     private createProperty(row: IRow, className: string) {
-        var name = PocoStick.getProperName(row.COLUMN_NAME);
-        var type = this.typeMap[row.DATA_TYPE];
-        var isNullable = row.IS_NULLABLE === "YES";
+        var name = PocoStick.getProperName(row.name);
+        var type = this.typeMap[row.type];
+        var isNullable = row.isNullable;
 
         this.logger(`\t\tCreating property '${name}' of type '${type}' that ${isNullable ? "IS" : "is not"} nullable.`);
 
         return this.templateProperty.map(line => {
-            if (line.match("{{defaultValue}}") && row.COLUMN_DEFAULT === null) {
+            if (line.match("{{defaultValue}}") && row.defaultValue === null) {
                 return null;
             }
 
@@ -209,7 +208,7 @@ export default class PocoStick {
                 .replace("{{type}}", type)
                 .replace("{{className}}", className)
                 .replace("{{nullable}}", isNullable ? "?" : "")
-                .replace("{{defaultValue}}", row.COLUMN_DEFAULT !== null ? row.COLUMN_DEFAULT : "");
+                .replace("{{defaultValue}}", row.defaultValue !== null ? row.defaultValue : "");
         }).filter(line => line !== null).join("\r\n");
     }
 }

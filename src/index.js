@@ -107,7 +107,7 @@ var PocoStick = (function () {
                     throw new Error(err.message);
                 }
                 var tableNames = rows
-                    .map(function (row) { return row.TABLE_NAME; })
+                    .map(function (row) { return row.tableName; })
                     .filter(function (val, pos, arr) { return arr.indexOf(val) === pos; });
                 var files = tableNames.map(function (tableName) { return _this.createFile(rows, tableName); });
                 if (!dryRun) {
@@ -159,17 +159,17 @@ var PocoStick = (function () {
         var className = PocoStick.getProperName(tableName);
         this.logger("\t\tCreating properties for class '" + className + "'");
         return rows
-            .filter(function (row) { return row.TABLE_NAME === tableName; })
+            .filter(function (row) { return row.tableName === tableName; })
             .map(function (field) { return _this.createProperty(field, className); })
             .join("\r\n");
     };
     PocoStick.prototype.createProperty = function (row, className) {
-        var name = PocoStick.getProperName(row.COLUMN_NAME);
-        var type = this.typeMap[row.DATA_TYPE];
-        var isNullable = row.IS_NULLABLE === "YES";
+        var name = PocoStick.getProperName(row.name);
+        var type = this.typeMap[row.type];
+        var isNullable = row.isNullable;
         this.logger("\t\tCreating property '" + name + "' of type '" + type + "' that " + (isNullable ? "IS" : "is not") + " nullable.");
         return this.templateProperty.map(function (line) {
-            if (line.match("{{defaultValue}}") && row.COLUMN_DEFAULT === null) {
+            if (line.match("{{defaultValue}}") && row.defaultValue === null) {
                 return null;
             }
             return line
@@ -177,7 +177,7 @@ var PocoStick = (function () {
                 .replace("{{type}}", type)
                 .replace("{{className}}", className)
                 .replace("{{nullable}}", isNullable ? "?" : "")
-                .replace("{{defaultValue}}", row.COLUMN_DEFAULT !== null ? row.COLUMN_DEFAULT : "");
+                .replace("{{defaultValue}}", row.defaultValue !== null ? row.defaultValue : "");
         }).filter(function (line) { return line !== null; }).join("\r\n");
     };
     return PocoStick;
