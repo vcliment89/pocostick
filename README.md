@@ -12,7 +12,7 @@ The library is intended to be used with Typescript... But should easily integrat
 
 ## Typescript example
 
-```typecript
+```typescript
 import Pocostick from "pocostick";
 
 new Pocostick({
@@ -27,7 +27,7 @@ new Pocostick({
 
 ## Javascript example
 
-```javasccript
+```javascript
 var Pocostick = require("pocostick");
 
 new Pocostick.default({
