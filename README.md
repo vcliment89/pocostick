@@ -10,6 +10,10 @@ The library is intended to be used with Typescript... But should easily integrat
 - mssql
 - mysql
 
+## Installation
+
+`npm install --save pocostick`
+
 ## Typescript example
 
 ```typescript
