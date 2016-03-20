@@ -4,4 +4,5 @@ export interface IConfig {
     password: string;
     database: string;
     driver: "mysql" | "mssql";
+    output: string;
 }

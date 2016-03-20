@@ -95,7 +95,7 @@ export default class PocoStick {
     
     private db: IDatabaseHandler;
 
-    constructor(public config: IConfig, public outputDir = "/", public defaultNamespace = "PocoStick.Models", public logger: (message: string) => void = message => console.log(message)) {
+    constructor(public config: IConfig, public defaultNamespace = "PocoStick.Models", public logger: (message: string) => void = message => console.log(message)) {
         switch (config.driver) {
             case "mysql":
                 this.useMysql();
@@ -165,7 +165,7 @@ export default class PocoStick {
 
         this.logger(`Creating file '${fileName}'`);
 
-        return new PocoFile(`${this.outputDir}${fileName}`, this.createClass(rows, tableName));
+        return new PocoFile(`${this.config.output}${fileName}`, this.createClass(rows, tableName));
     }
 
     private createClass(rows: Array<IRow>, tableName: string) {
