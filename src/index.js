@@ -132,7 +132,7 @@ var PocoStick = (function () {
       if (fs.existsSync(dirname)) {
         return true;
       }
-      PocoStick.ensureDirectoryExistence(dirname);
+      ensureDirectoryExistence(dirname);
       fs.mkdirSync(dirname);
     };
     PocoStick.prototype.useMssql = function () {
