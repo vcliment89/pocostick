@@ -5,7 +5,6 @@ var path = require("path");
 var MysqlHandler_1 = require("./MysqlHandler");
 var MssqlHandler_1 = require("./MssqlHandler");
 var PocoFile_1 = require("./PocoFile");
-var pascalcase = require("pascalcase");
 var PocoStick = (function () {
     function PocoStick(config, defaultNamespace, logger) {
         if (defaultNamespace === void 0) { defaultNamespace = "PocoStick.Models"; }
@@ -111,6 +110,7 @@ var PocoStick = (function () {
                 if (!dryRun) {
                     files.forEach(function (file) {
                         try {
+                            PocoStick.ensureDirectoryExistence(file.filename);
                             fs.writeFileSync(file.filename, file.content, "utf8");
                         }
                         catch (e) {
@@ -126,6 +126,14 @@ var PocoStick = (function () {
         catch (e) {
             console.error(e);
         }
+    };
+    PocoStick.prototype.ensureDirectoryExistence = function (filePath) {
+      var dirname = path.dirname(filePath);
+      if (fs.existsSync(dirname)) {
+        return true;
+      }
+      PocoStick.ensureDirectoryExistence(dirname);
+      fs.mkdirSync(dirname);
     };
     PocoStick.prototype.useMssql = function () {
         this.typeMap = this.mssqlTypes;
